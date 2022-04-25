@@ -1,0 +1,3 @@
+skydp_function_bignumber: 由于存储数字(如：uint256)的精度和取值范围大于hive数据库中的bigdecimal的范围，所以用string存储数据，重构hive数据库中的add, sub, mul, div等udf函数, sum,avg,max,min等udaf函数
+sky_dy_hive_udtf:自定义的UDAF函数，用于解析json数组，行转列
+skydp_function_opensea_parse： 以太坊解析erc20的transfer和approval日志
