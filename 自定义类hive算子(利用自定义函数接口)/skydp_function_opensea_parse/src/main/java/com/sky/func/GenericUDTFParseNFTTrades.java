@@ -472,7 +472,7 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
             } else {
                 int index = 2 * 64;
 
-                long tokensNum = new Long(data.substring(index, index + 64));
+                long tokensNum = new Long(ToolUtil.hexToNumStr(data.substring(index, index + 64)));
                 index += 64;
                 for (int i = 0; i < tokensNum; i++) {
                     tokenId.append(ToolUtil.hexToNumStr(data.substring(index, index + 64))).append(",");
@@ -480,7 +480,7 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
                 }
                 tokenId = new StringBuilder(tokenId.substring(0, tokenId.length() - 1));
 
-                long valuesCount = new Long(data.substring(index, index + 64));
+                long valuesCount = new Long(ToolUtil.hexToNumStr(data.substring(index, index + 64)));
                 index += 64;
                 for (int i = 0; i < valuesCount; i++) {
                     value.append(ToolUtil.hexToNumStr(data.substring(index, index + 64))).append(",");
