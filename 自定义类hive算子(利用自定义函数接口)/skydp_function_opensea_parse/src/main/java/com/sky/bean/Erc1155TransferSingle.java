@@ -11,7 +11,7 @@ public class Erc1155TransferSingle {
     private String from;
     private String to;
     private String tokenId;
-    private int value;
+    private String value;
 
     public Erc1155TransferSingle() {
 
