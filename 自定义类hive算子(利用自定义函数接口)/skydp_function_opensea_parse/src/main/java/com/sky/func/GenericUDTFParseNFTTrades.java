@@ -6,12 +6,15 @@ import com.sky.util.ToolUtil;
 import org.apache.hadoop.hive.ql.exec.Description;
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFSum;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDTF;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.web3j.utils.Numeric;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,6 +25,8 @@ import java.util.List;
 
 
 public class GenericUDTFParseNFTTrades extends GenericUDTF {
+    static final Logger LOG = LoggerFactory.getLogger(GenericUDTFParseNFTTrades.class.getName());
+
     private transient final String[] result = new String[1];
     //存储erc20,erc721, erc1155的transfer日志信息
     private transient final HashMap<String, ArrayList<Erc20Transfer>> erc20Map = new HashMap<>();
@@ -283,7 +288,10 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 
             String tokenIds = openSea.getNftTokenId();
             //去掉,
-            openSea.setNftTokenId(tokenIds.substring(0, tokenIds.length() - 1));
+            if (tokenIds.length() != 0){
+                openSea.setNftTokenId(tokenIds.substring(0, tokenIds.length() - 1));
+            }
+
             return true;
         }
         return false;
@@ -321,7 +329,9 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 
             String tokenIds = openSea.getNftTokenId();
             //去掉,
-            openSea.setNftTokenId(tokenIds.substring(0, tokenIds.length() - 1));
+            if (tokenIds.length() != 0) {
+                openSea.setNftTokenId(tokenIds.substring(0, tokenIds.length() - 1));
+            }
             return true;
         }
         return false;
@@ -350,7 +360,9 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
                 openSea.setNftContractAddress(erc721Transfer.getAddress());
             }
             String tokenIds = openSea.getNftTokenId();
-            openSea.setNftTokenId(tokenIds.substring(0, tokenIds.length() - 1));
+            if (tokenIds.length() != 0) {
+                openSea.setNftTokenId(tokenIds.substring(0, tokenIds.length() - 1));
+            }
             return true;
         }
 
@@ -460,33 +472,47 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
                 && topics.length == 4) {
             //去掉0x
             String data = Numeric.cleanHexPrefix(log.getData());
-            int size = data.length() >> 6;
+            if (data == null || data.length() == 0) {
+                return false;
+            }
 
             //解析出tokenId和value
             StringBuilder tokenId = new StringBuilder();
             StringBuilder value = new StringBuilder();
 
-            if (size == 2) {
-                tokenId = new StringBuilder(ToolUtil.hexToNumStr(data.substring(0, 64)));
-                value = new StringBuilder(ToolUtil.hexToNumStr(data.substring(64)));
-            } else {
+            //transferSingle
+            if (ERC1155_TRANSFER_SINGLE_METHOD.equals(method)) {
+                if (data.length() == 128) {
+                    tokenId = new StringBuilder(ToolUtil.hexToNumStr(data.substring(0, 64)));
+                    value = new StringBuilder(ToolUtil.hexToNumStr(data.substring(64)));
+                }
+            } else {  //transferBatch
                 int index = 2 * 64;
 
+                //获取token
                 long tokensNum = new Long(ToolUtil.hexToNumStr(data.substring(index, index + 64)));
                 index += 64;
                 for (int i = 0; i < tokensNum; i++) {
                     tokenId.append(ToolUtil.hexToNumStr(data.substring(index, index + 64))).append(",");
                     index += 64;
                 }
-                tokenId = new StringBuilder(tokenId.substring(0, tokenId.length() - 1));
 
+                if (tokenId.length() != 0) {
+                    tokenId = new StringBuilder(tokenId.substring(0, tokenId.length() - 1));
+                }
+
+                //获取value
                 long valuesCount = new Long(ToolUtil.hexToNumStr(data.substring(index, index + 64)));
                 index += 64;
                 for (int i = 0; i < valuesCount; i++) {
                     value.append(ToolUtil.hexToNumStr(data.substring(index, index + 64))).append(",");
                     index += 64;
                 }
-                value = new StringBuilder(value.substring(0, value.length() - 1));
+
+                if (value.length() != 0) {
+                    value = new StringBuilder(value.substring(0, value.length() - 1));
+                }
+
             }
 
             Erc1155TransferSingle erc1155Case = new Erc1155TransferSingle(
