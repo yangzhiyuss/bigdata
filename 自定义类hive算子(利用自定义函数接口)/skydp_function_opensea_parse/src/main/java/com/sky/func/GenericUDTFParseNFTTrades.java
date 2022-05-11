@@ -1,21 +1,21 @@
 package com.sky.func;
 
 import com.alibaba.fastjson.JSON;
-import com.sky.bean.*;
+import com.sky.bean.log.*;
+import com.sky.bean.transaction.*;
 import com.sky.util.ToolUtil;
 import org.apache.hadoop.hive.ql.exec.Description;
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
-import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFSum;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDTF;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.web3j.utils.Numeric;
+
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,11 +23,10 @@ import java.util.List;
 @Description(name = "explode_nft_trades()",
         value = "_FUNC_(a) - separates the elements of string a into multiple rows")
 
-
 public class GenericUDTFParseNFTTrades extends GenericUDTF {
-    static final Logger LOG = LoggerFactory.getLogger(GenericUDTFParseNFTTrades.class.getName());
-
     private transient final String[] result = new String[1];
+    //获取opensea的税收
+    private transient final ArrayList<OpenseaFee> openseaFeeList = new ArrayList<>();
     //存储erc20,erc721, erc1155的transfer日志信息
     private transient final HashMap<String, ArrayList<Erc20Transfer>> erc20Map = new HashMap<>();
     private transient final HashMap<String, ArrayList<Erc721Transfer>> erc721Map = new HashMap<>();
@@ -39,6 +38,10 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
     private final static String NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
     //WETH合约地址
     private final static String WETH_CONTRACT_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+    //opensea_v1合约
+    private final static String OPENSEA_CONTRACT_V1_ADDRESS = "0x7be8076f4ea4a4ad08075c2508e481d6c946d12b";
+    //opensea_v2合约
+    private final static String OPENSEA_CONTRACT_V2_ADDRESS = "0x7f268357a8c2552623316e2562d90e642bb538e5";
 
     //合约方法
     private final static String ERC20_ERC721_TRANSFER_METHOD =
@@ -51,7 +54,6 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
             "0xc4109843e0b7d514e4c093114b863f8e7d8d9a458c372cd51bfe526b588006c9";
     private final static String NULL_HASH =
             "0000000000000000000000000000000000000000000000000000000000000000";
-
 
     public GenericUDTFParseNFTTrades() {
 
@@ -79,8 +81,8 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
         }
 
         // 3 定义返回值名称和类型
-        List<String> fieldNames = new ArrayList<String>();
-        List<ObjectInspector> fieldOIs = new ArrayList<ObjectInspector>();
+        List<String> fieldNames = new ArrayList<>();
+        List<ObjectInspector> fieldOIs = new ArrayList<>();
 
         fieldNames.add("col_e");
         fieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
@@ -101,7 +103,7 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
         String[] txnMsg = txn.split("#");
 
         //判断日志是否为空
-        if (txnMsg.length != 7) {
+        if (txnMsg.length != 8) {
             return;
         }
 
@@ -110,14 +112,29 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
                 txnMsg[0], txnMsg[1], txnMsg[2], txnMsg[3], txnMsg[4], txnMsg[5]
         );
 
+        //获取inputdata
+        String inputData = txnMsg[6];
+
+        //获取log
+        String logs = txnMsg[7];
+        //判断是否为opensea
+        if (!logs.contains(ORDERS_MATCHED_METHOD)) {
+            return;
+        }
+
         //解析所有log并进行排序
-        String logs = txnMsg[6];
         Log[] logCases = sortLog(parseLogs(logs));
         if (logCases == null) {
             return;
         }
 
+        //计算税收
+        ParseInputDataOfOpensea parseInputDataOfOpensea = new ParseInputDataOfOpensea();
+        parseInputDataOfOpensea.parseDataToFeeList(inputData, openseaFeeList);
+
         //解析opensea
+        //纪录opensea的个数
+        int count = 0;
         for (int i = 0; i < logCases.length && logCases[i] != null; i++) {
             OpenSea openSea = null;
 
@@ -126,7 +143,7 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 
             //解析opensea
             if (!isParse) {
-                openSea = parseOpenSea(transaction, logCases[i]);
+                openSea = parseOpenSea(transaction, logCases[i], count);
             }
 
             if (openSea != null) {
@@ -136,18 +153,21 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 //                System.out.println(result[0]);
 //                System.out.println("---------------------");
 
+                //解析一个opensea count + 1
+                count++;
+
                 //清空map
                 erc20Map.clear();
                 erc721Map.clear();
                 erc1155Map.clear();
             }
-
         }
-
+        //清空list
+        openseaFeeList.clear();
     }
 
 
-    private OpenSea parseOpenSea(Transaction transaction, Log log) {
+    private OpenSea parseOpenSea(Transaction transaction, Log log, int count) {
         OpenSea openSea = new OpenSea();
 
         //解析ordermatch函数
@@ -158,9 +178,15 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 
         openSea.setTransaction(transaction);
         openSea.setLogIndex(log.getLogIndex());
-        openSea.setPlatform("OpenSea");
-        openSea.setPlatformVersion("1");
         openSea.setExchangeContractAddress(order.getAddress());
+        if (OPENSEA_CONTRACT_V1_ADDRESS.equals(openSea.getExchangeContractAddress())) {
+            openSea.setPlatform("OpenSea");
+            openSea.setPlatformVersion("1");
+        } else if (OPENSEA_CONTRACT_V2_ADDRESS.equals(openSea.getExchangeContractAddress())) {
+            openSea.setPlatform("OpenSea");
+            openSea.setPlatformVersion("2");
+        }
+
         //原始代币信息
         openSea.setOriginalAmountRaw(order.getPrice());
 
@@ -188,17 +214,48 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 
         //得到seller税款信息
         String tokenFeeForSeller = openSea.getSeller() + "-" + OPENSEA_WALLET_ADDRESS;
-        getFee(openSea, tokenFeeForSeller);
+        getTokenFee(openSea, tokenFeeForSeller, Side.Sell);
 
         //得到buyer税款信息
         String tokenFeeForBuyer  = openSea.getBuyer() + "-" + OPENSEA_WALLET_ADDRESS;
-        getFee(openSea, tokenFeeForBuyer);
+        getTokenFee(openSea, tokenFeeForBuyer, Side.Buy);
+
+        //对于eth,获取税收
+        getEthFee(openSea, count);
 
         return openSea;
     }
 
+    private void getEthFee(OpenSea openSea, int count) {
+        if ("ETH".equals(openSea.getOriginalCurrency()) && count < openseaFeeList.size()) {
+            OpenseaFee openseaFee = openseaFeeList.get(count);
+            //获取seller税收
+            BigDecimal zero = new BigDecimal("0");
+            if (openseaFee.getPlatformFeesPercentForSeller().compareTo(zero) > 0) {
+                String feeValue = ToolUtil.mulBigNum(openSea.getOriginalAmount(), openseaFee.getPlatformFeesPercentForSeller().toString());
+                openSea.setTokenPlatformFeesForSeller(feeValue);
+                openSea.setEthPlatformFeesForSeller(feeValue);
+            } else if (openseaFee.getEthPlatformFeeForSeller().compareTo(zero) > 0){
+                String feeValue = ToolUtil.mulBigNum(openseaFee.getEthPlatformFeeForSeller().toString(), String.valueOf(Math.pow(10, -18)));
+                openSea.setTokenPlatformFeesForSeller(feeValue);
+                openSea.setEthPlatformFeesForSeller(feeValue);
+            }
 
-    private void getFee(OpenSea openSea, String key) {
+            //获取buyer税收
+            if (openseaFee.getPlatformFeesPercentForBuyer().compareTo(zero) > 0) {
+                String feeValue = ToolUtil.mulBigNum(openSea.getOriginalAmount(), openseaFee.getPlatformFeesPercentForBuyer().toString());
+                openSea.setTokenPlatformFeesForBuyer(feeValue);
+                openSea.setEthPlatformFeesForBuyer(feeValue);
+            } else if (openseaFee.getEthPlatformFeesForBuyer().compareTo(zero) > 0){
+                String feeValue = ToolUtil.mulBigNum(openseaFee.getEthPlatformFeesForBuyer().toString(), String.valueOf(Math.pow(10, -18)));
+                openSea.setTokenPlatformFeesForBuyer(feeValue);
+                openSea.setEthPlatformFeesForBuyer(feeValue);
+            }
+        }
+    }
+
+
+    private void getTokenFee(OpenSea openSea, String key, Side side) {
         ArrayList<Erc20Transfer> erc20Transfers = erc20Map.get(key);
         if (erc20Transfers == null || erc20Transfers.size() == 0) {
             return;
@@ -208,9 +265,19 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
             //计算token的数量
             String tokenAmount = ToolUtil.mulBigNum(
                     erc20Transfer.getValue(), String.valueOf(Math.pow(10, -erc20Transfer.getDecimal())));
-
-            String value = ToolUtil.addBigNum(openSea.getTokenPlatformFeesForSeller(), tokenAmount);
-            openSea.setTokenPlatformFeesForSeller(value);
+            if (side == Side.Sell) {
+                String value = ToolUtil.addBigNum(openSea.getTokenPlatformFeesForSeller(), tokenAmount);
+                openSea.setTokenPlatformFeesForSeller(value);
+                if ("WETH".equals(openSea.getOriginalCurrency())) {
+                    openSea.setEthPlatformFeesForSeller(value);
+                }
+            } else {
+                String value = ToolUtil.addBigNum(openSea.getTokenPlatformFeesForBuyer(), tokenAmount);
+                openSea.setTokenPlatformFeesForBuyer(value);
+                if ("WETH".equals(openSea.getOriginalCurrency())) {
+                    openSea.setEthPlatformFeesForBuyer(value);
+                }
+            }
         }
     }
 
@@ -403,13 +470,14 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
         for (Erc20Transfer erc20Transfer : erc20Transfers) {
             if (openSea.getOriginalAmountRaw() != null && openSea.getOriginalAmountRaw().equals(erc20Transfer.getValue())) {
                 //计算token的值，去精度
-                openSea.setOriginalAmount(
-                        ToolUtil.mulBigNum(
-                                openSea.getOriginalAmountRaw(), String.valueOf(Math.pow(10, -erc20Transfer.getDecimal()))
-                        )
-                );
+                String tokenValue = ToolUtil.mulBigNum(openSea.getOriginalAmountRaw(), String.valueOf(Math.pow(10, -erc20Transfer.getDecimal())));
+                //设置币价格
+                openSea.setOriginalAmount(tokenValue);
                 //token的名字
-                openSea.setOriginalCurrency(erc20Transfer.getSymbol());
+                if (WETH_CONTRACT_ADDRESS.equals(erc20Transfer.getAddress())) {
+                    openSea.setOriginalCurrency("WETH");
+                    openSea.setEthAmount(tokenValue);
+                }
                 //token的合约地址
                 openSea.setOriginalCurrencyContract(erc20Transfer.getAddress());
                 openSea.setCurrencyContract(erc20Transfer.getAddress());
