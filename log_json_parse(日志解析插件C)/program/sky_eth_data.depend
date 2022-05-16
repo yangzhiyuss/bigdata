@@ -1,0 +1,24 @@
+# depslib dependency file v1.0
+1641782606 source:g:\codeblocks\sky_eth_data\sky_eth_data\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<sys/types.h>
+	<errno.h>
+	<dirent.h>
+	<time.h>
+	<stdbool.h>
+	"cJson.h"
+
+1641463352 g:\codeblocks\sky_eth_data\sky_eth_data\cjson.h
+
+1641545770 source:g:\codeblocks\sky_eth_data\sky_eth_data\cjson.c
+	<string.h>
+	<stdio.h>
+	<math.h>
+	<stdlib.h>
+	<float.h>
+	<limits.h>
+	<ctype.h>
+	"cJson.h"
+
