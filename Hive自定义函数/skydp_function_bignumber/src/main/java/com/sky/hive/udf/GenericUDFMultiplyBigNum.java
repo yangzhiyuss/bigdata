@@ -19,14 +19,10 @@ public class GenericUDFMultiplyBigNum extends UDF{
             throw new UDFArgumentLengthException("takes less two argument");
         }
 
-        if (arguments[0] == null || "".equals(arguments[0]) || arguments[1] == null || "".equals(arguments[1])) {
-            return "0";
-        }
-
         //结果初始化
-        result = new BigDecimal(arguments[0]);
+        result = transferArgToBigDecimal(arguments[0]);
         for (int i = 1; i < arguments.length; i++) {
-            result = result.multiply(this.transferArgToBigDecimal(arguments[i]));
+            result = result.multiply(transferArgToBigDecimal(arguments[i]));
         }
 
         return result.toPlainString();

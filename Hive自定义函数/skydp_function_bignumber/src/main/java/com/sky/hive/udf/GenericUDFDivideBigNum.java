@@ -20,16 +20,11 @@ public class GenericUDFDivideBigNum extends UDF {
             throw new UDFArgumentLengthException("takes less two argument");
         }
 
-        if (arguments[0] == null || "".equals(arguments[0]) || arguments[1] == null || "".equals(arguments[1])) {
-            return "0";
-        }
-
         //结果初始化
-        result = new BigDecimal(arguments[0]);
-
+        result = transferArgToBigDecimal(arguments[0]);
         BigDecimal tmpData;
         for (int i = 1; i < arguments.length; i++) {
-            tmpData = this.transferArgToBigDecimal(arguments[i]);
+            tmpData = transferArgToBigDecimal(arguments[i]);
             if (tmpData.compareTo(new BigDecimal("0")) == 0) {
                 throw new HiveException("zero cannot be divided");
             }
