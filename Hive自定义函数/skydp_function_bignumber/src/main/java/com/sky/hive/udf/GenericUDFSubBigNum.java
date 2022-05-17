@@ -25,9 +25,9 @@ public class GenericUDFSubBigNum extends UDF {
         }
 
         //结果初始化
-        result = new BigDecimal(arguments[0]);
+        result = transferArgToBigDecimal(arguments[0]);
         for (int i = 1; i < arguments.length; i++) {
-            result = result.subtract(this.transferArgToBigDecimal(arguments[i]));
+            result = result.subtract(transferArgToBigDecimal(arguments[i]));
         }
 
         return result.toPlainString();
