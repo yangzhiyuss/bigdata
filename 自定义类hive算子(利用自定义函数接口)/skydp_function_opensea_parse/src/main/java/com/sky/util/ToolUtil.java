@@ -19,11 +19,11 @@ public class ToolUtil {
 
     //自定义的大数乘法
     public static String mulBigNum(String param1, String param2) {
-        return strToBigDecimal(param1).multiply(strToBigDecimal(param2)).toPlainString();
+        return strToBigDecimal(param1).multiply(strToBigDecimal(param2)).stripTrailingZeros().toPlainString();
     }
 
     public static String addBigNum(String param1, String param2) {
-        return strToBigDecimal(param1).add(strToBigDecimal(param2)).toPlainString();
+        return strToBigDecimal(param1).add(strToBigDecimal(param2)).stripTrailingZeros().toPlainString();
     }
 
     private static BigDecimal strToBigDecimal(String arg) {

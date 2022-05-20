@@ -130,7 +130,7 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
 
         //计算税收
         ParseInputDataOfOpensea parseInputDataOfOpensea = new ParseInputDataOfOpensea();
-        parseInputDataOfOpensea.parseDataToFeeList(inputData, openseaFeeList);
+        parseInputDataOfOpensea.parseDataToFeeList(transaction.getTxTo(), inputData, openseaFeeList);
 
         //解析opensea
         //纪录opensea的个数
@@ -227,8 +227,18 @@ public class GenericUDTFParseNFTTrades extends GenericUDTF {
     }
 
     private void getEthFee(OpenSea openSea, int count) {
-        if ("ETH".equals(openSea.getOriginalCurrency()) && count < openseaFeeList.size()) {
-            OpenseaFee openseaFee = openseaFeeList.get(count);
+        int index = 0;
+        //不存在税收消息
+        if(openseaFeeList.size() <= 0) {
+            return;
+        }
+
+        if (count < openseaFeeList.size()) {
+            index = count;
+        }
+
+        if ("ETH".equals(openSea.getOriginalCurrency())) {
+            OpenseaFee openseaFee = openseaFeeList.get(index);
             //获取seller税收
             BigDecimal zero = new BigDecimal("0");
             if (openseaFee.getPlatformFeesPercentForSeller().compareTo(zero) > 0) {
