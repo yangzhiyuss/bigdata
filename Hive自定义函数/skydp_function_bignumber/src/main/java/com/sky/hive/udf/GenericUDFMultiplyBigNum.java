@@ -25,7 +25,7 @@ public class GenericUDFMultiplyBigNum extends UDF{
             result = result.multiply(transferArgToBigDecimal(arguments[i]));
         }
 
-        return result.toPlainString();
+        return result.stripTrailingZeros().toPlainString();
     }
 
     private BigDecimal transferArgToBigDecimal(String arg) {
