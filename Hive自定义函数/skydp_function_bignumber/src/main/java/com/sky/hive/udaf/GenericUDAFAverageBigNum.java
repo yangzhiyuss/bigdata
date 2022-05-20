@@ -129,7 +129,7 @@ public class GenericUDAFAverageBigNum extends AbstractGenericUDAFResolver {
             }
             BigDecimal countBigDecimal = new BigDecimal(myAgg.count);
             //return myAgg.sum.divide(countBigDecimal, 18, BigDecimal.ROUND_HALF_UP).toString();
-            return myAgg.sum.divide(countBigDecimal, 18, BigDecimal.ROUND_HALF_UP).toPlainString();
+            return myAgg.sum.divide(countBigDecimal, 18, BigDecimal.ROUND_HALF_UP).stripTrailingZeros().toPlainString();
         }
     }
 }

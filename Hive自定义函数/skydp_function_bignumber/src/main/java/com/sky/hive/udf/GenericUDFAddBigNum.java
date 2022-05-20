@@ -25,7 +25,7 @@ public class GenericUDFAddBigNum extends UDF {
             result = result.add(transferArgToBigDecimal(arguments[i]));
         }
 
-        return result.toPlainString();
+        return result.stripTrailingZeros().toPlainString();
     }
 
     private BigDecimal transferArgToBigDecimal(String arg) {

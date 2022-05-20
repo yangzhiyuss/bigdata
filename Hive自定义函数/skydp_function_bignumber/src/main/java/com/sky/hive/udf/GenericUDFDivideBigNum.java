@@ -31,7 +31,7 @@ public class GenericUDFDivideBigNum extends UDF {
             result = result.divide(tmpData,18, BigDecimal.ROUND_HALF_UP);
         }
 
-        return result.toPlainString();
+        return result.stripTrailingZeros().toPlainString();
     }
 
     private BigDecimal transferArgToBigDecimal(String arg) {

@@ -30,7 +30,7 @@ public class GenericUDFSubBigNum extends UDF {
             result = result.subtract(transferArgToBigDecimal(arguments[i]));
         }
 
-        return result.toPlainString();
+        return result.stripTrailingZeros().toPlainString();
     }
 
     private BigDecimal transferArgToBigDecimal(String arg) {

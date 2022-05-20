@@ -106,7 +106,7 @@ public class GenericUDAFSumBigNum extends AbstractGenericUDAFResolver {
         @Override
         public Object terminate(AggregationBuffer agg) throws HiveException {
             SumBigNumBuffer myAgg = (SumBigNumBuffer) agg;
-            return myAgg.sum.toPlainString();
+            return myAgg.sum.stripTrailingZeros().toPlainString();
         }
     }
 }
