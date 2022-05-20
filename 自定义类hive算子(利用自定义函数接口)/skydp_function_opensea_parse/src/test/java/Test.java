@@ -1,26 +1,17 @@
 import com.sky.func.GenericUDTFParseNFTTrades;
+import com.sky.func.ParseInputDataOfOpensea;
+import com.sky.util.ToolUtil;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.velocity.runtime.directive.Parse;
+
+import java.math.BigDecimal;
 
 public class Test {
+    //汇率除数
+    private final static BigDecimal INVERSE_BASIS_POINT = new BigDecimal(10000);
 
     public static void main(String[] args) throws HiveException {
-        //erc721
-        //erc1155
-        //erc721
-        //buy02
-        //mint
-        //erc20
-        //erc20
-        //中间商赚差价
-        //buy02 buyer
-        //buy02 buyer erc1155
-        //batch
-        String str8 = "";
-
-        String strArr[] = new String[1];
-        strArr[0] = str8;
-        System.out.println(0 / 1024);
-//        new GenericUDTFParseNFTTrades().process(strArr);
-
+        System.out.println(
+                new BigDecimal("1000000.0000000000000000000000").stripTrailingZeros().toPlainString());
     }
 }

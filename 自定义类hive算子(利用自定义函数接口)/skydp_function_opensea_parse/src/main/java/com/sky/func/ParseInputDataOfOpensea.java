@@ -5,6 +5,7 @@ import com.sky.util.ToolUtil;
 import org.web3j.utils.Numeric;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 
 public class ParseInputDataOfOpensea {
@@ -17,8 +18,7 @@ public class ParseInputDataOfOpensea {
     //汇率除数
     private final static BigDecimal INVERSE_BASIS_POINT = new BigDecimal(10000);
 
-
-    public void parseDataToFeeList(String args, ArrayList<OpenseaFee> openseaFeeList) {
+    public void parseDataToFeeList(String to, String args, ArrayList<OpenseaFee> openseaFeeList) {
         //判断参数是否合法
         if (args == null || args.length() == 0) {
             return;
@@ -36,13 +36,11 @@ public class ParseInputDataOfOpensea {
             openseaAddress = OPENSEA_CONTRACT_V2_ADDRESS;
         } else if (data.contains(OPENSEA_CONTRACT_V1_ADDRESS)) {
             openseaAddress = OPENSEA_CONTRACT_V1_ADDRESS;
-        } else {
-            return;
         }
 
         //获取索引
         int index = data.indexOf(openseaAddress);
-        while (index != -1) {
+        while (index != -1 && !"".equals(openseaAddress)) {
             //切割字符串，地址字符位64位，地址40位,补24位,从opensea的参数开始解
             String params = data.substring(index - 24);
             //获得inputdata
@@ -64,6 +62,43 @@ public class ParseInputDataOfOpensea {
                 data = params;
                 index = data.indexOf(openseaAddress, 64);
             }
+        }
+
+        if (openseaFeeList.size() == 0 && "".equals(openseaAddress)) {
+            //解析一些特定的不能解析的合约
+            parseSpecialOpenseaData(to, args, openseaFeeList);
+        }
+    }
+
+    private void parseSpecialOpenseaData(String to, String args, ArrayList<OpenseaFee> openseaFeeList) {
+        String data = Numeric.cleanHexPrefix(args);
+
+        OpenseaFee openseaFee = new OpenseaFee();
+        if ("0x0000000031f7382a812c64b604da4fc520afef4b".equals(to)) {
+            //获取税收地址
+            BigDecimal sellFeePercent =
+                    new BigDecimal(ToolUtil.hexToNumStr(data.substring(42, 46))).divide(INVERSE_BASIS_POINT);
+
+            openseaFee.setPlatformFeesPercentForSeller(sellFeePercent);
+            //写入
+            openseaFeeList.add(openseaFee);
+        }
+        else if ("0x0000000035634b55f3d99b071b5a354f48e10bef".equals(to) ||
+                "0x00000000a50bb64b4bbeceb18715748dface08af".equals(to)) {
+            //获取税收地址
+            BigDecimal sellFeePercent =
+                    new BigDecimal(ToolUtil.hexToNumStr(data.substring(40, 44))).divide(INVERSE_BASIS_POINT);
+
+            openseaFee.setPlatformFeesPercentForSeller(sellFeePercent);
+            //写入
+            openseaFeeList.add(openseaFee);
+        } else if ("0x2af4b707e1dce8fc345f38cfeeaa2421e54976d5".equals(to)) {
+            //获取税收地址
+            BigDecimal sellFeePercent =
+                    new BigDecimal(ToolUtil.hexToNumStr(data.substring(141, 144))).divide(INVERSE_BASIS_POINT);
+            openseaFee.setPlatformFeesPercentForSeller(sellFeePercent);
+            //写入
+            openseaFeeList.add(openseaFee);
         }
     }
 
