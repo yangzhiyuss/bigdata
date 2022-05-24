@@ -53,6 +53,11 @@ public class ExplodeJSON extends GenericUDTF {
 
     @Override
     public void process(Object[] objects) throws HiveException {
+        //参数限制
+        if (objects == null || objects[0] == null) {
+            return;
+        }
+
         String json = objects[0].toString();
         JSONArray jsonArray;
         try {
