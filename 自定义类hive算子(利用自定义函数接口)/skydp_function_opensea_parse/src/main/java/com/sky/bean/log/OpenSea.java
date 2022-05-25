@@ -1,6 +1,7 @@
 package com.sky.bean.log;
 
 
+import com.sky.bean.transaction.Transaction;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
