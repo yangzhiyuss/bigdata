@@ -2,4 +2,4 @@ skydp_function_bignumber: 由于存储数字(如：uint256)的精度和取值范
 
 sky_dy_hive_udtf:自定义的UDAF函数，用于解析json数组，行转列
 
-skydp_function_opensea_parse： 解析以太坊中的erc20的transfer和approval日志
+skydp_function_topic_parse： 解析以太坊中的erc20的transfer和approval日志
